@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Informe Mensual de Operaciones</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Librería para exportar a PDF en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
       --dark: #2C3E50;
@@ -25,7 +27,7 @@
     }
 
     .container {
-      max-width: 1400px;
+      max-width: 1450px;
       margin: 0 auto;
       background: white;
       padding: 20px;
@@ -128,7 +130,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     th {
@@ -153,7 +155,7 @@
       border: none;
       background: transparent;
       font-family: Arial, sans-serif;
-      font-size: 13px;
+      font-size: 12px;
       padding: 4px;
     }
 
@@ -173,7 +175,26 @@
       background-color: var(--input-yellow);
     }
 
-    /* Leyenda */
+    /* Leyenda y Acciones */
+    .actions-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn-add { background-color: var(--dark); }
+    .btn-pdf { background-color: #27AE60; }
+    .btn:hover { opacity: 0.9; }
+
     .instructions {
       margin-top: 20px;
       font-size: 12px;
@@ -189,24 +210,18 @@
       color: var(--dark);
     }
 
-    .btn-add {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background-color: var(--dark);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .btn-add:hover {
-      opacity: 0.9;
+    /* Ocultar elementos interactivos/botones en el PDF */
+    @media print {
+      .actions-bar, .instructions { display: none !important; }
+      .table-container { max-height: none !important; overflow: visible !important; }
+      body { background: white; margin: 0; }
+      .container { box-shadow: none; border: none; padding: 0; }
     }
   </style>
 </head>
 <body>
 
-<div class="container">
+<div class="container" id="pdf-content">
   <!-- Encabezado y Dashboard -->
   <div class="top-section">
     <div class="title-block">
@@ -241,13 +256,14 @@
     <table id="recordsTable">
       <thead>
         <tr>
-          <th style="width: 110px;">FECHA FACILITIES</th>
-          <th style="width: 260px;">SERVICIO O PRODUCTO</th>
-          <th style="width: 110px;">FECHA LEONARDO</th>
-          <th style="width: 110px;">FECHA CONTABILIDAD</th>
-          <th style="width: 90px;">OC</th>
-          <th style="width: 90px;">FACTURA</th>
-          <th style="width: 110px;">ESTADO</th>
+          <th style="width: 105px;">FECHA FACILITIES</th>
+          <th style="width: 220px;">SERVICIO O PRODUCTO</th>
+          <th style="width: 105px;">FECHA LEONARDO</th>
+          <th style="width: 105px;">FECHA EDGAR</th>
+          <th style="width: 105px;">FECHA CONTABILIDAD</th>
+          <th style="width: 80px;">OC</th>
+          <th style="width: 80px;">FACTURA</th>
+          <th style="width: 100px;">ESTADO</th>
           <th>OBSERVACIONES</th>
         </tr>
       </thead>
@@ -257,26 +273,30 @@
     </table>
   </div>
 
-  <button class="btn-add" onclick="addRow()">+ Agregar Fila</button>
+  <!-- Botones de Acción -->
+  <div class="actions-bar">
+    <button class="btn btn-add" onclick="addRow()">+ Agregar Fila</button>
+    <button class="btn btn-pdf" onclick="exportToPDF()">Descargar PDF</button>
+  </div>
 
   <!-- Instrucciones / Leyenda -->
   <div class="instructions">
     <h4>LEYENDA / INSTRUCCIONES</h4>
     <ul>
+      <li><strong>FECHA EDGAR:</strong> Permite seleccionar las opciones <em>Edgar</em> o <em>No aplica</em>.</li>
       <li><strong>ESTADO:</strong> Selecciona de la lista desplegable (<em>Pendiente, En proceso, Facturado, Anulado</em>) para aplicar formato condicional.</li>
-      <li><strong>Resumen & Gráfico:</strong> Se actualizan automáticamente en tiempo real al ingresar o editar datos.</li>
+      <li><strong>Exportar:</strong> Presiona "Descargar PDF" para generar un reporte del informe.</li>
     </ul>
   </div>
 </div>
 
 <script>
-  // Inicialización de la fecha actual en el campo Fecha de emisión
+  // Inicialización de la fecha actual
   document.getElementById('emision').valueAsDate = new Date();
 
   const INITIAL_ROWS = 15;
   let chartInstance = null;
 
-  // Renderizar filas iniciales
   function initTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
@@ -287,7 +307,7 @@
     updateDashboard();
   }
 
-  // Agregar una nueva fila a la tabla
+  // Agregar una nueva fila con la columna Fecha Edgar agregada
   function addRow() {
     const tbody = document.getElementById('tableBody');
     const tr = document.createElement('tr');
@@ -296,6 +316,13 @@
       <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="text" placeholder="Descripción..." oninput="updateDashboard()"></td>
       <td><input type="date" oninput="updateDashboard()"></td>
+      <td>
+        <select onchange="updateDashboard()">
+          <option value=""></option>
+          <option value="Edgar">Edgar</option>
+          <option value="No aplica">No aplica</option>
+        </select>
+      </td>
       <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
       <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
@@ -313,12 +340,10 @@
     tbody.appendChild(tr);
   }
 
-  // Manejador para cambios de estado (Formato condicional)
   function handleStatusChange(selectEl) {
     const row = selectEl.closest('tr');
     const val = selectEl.value;
 
-    // Limpiar clases de formato
     selectEl.className = '';
     row.classList.remove('row-pendiente');
 
@@ -336,7 +361,6 @@
     updateDashboard();
   }
 
-  // Cálculo en tiempo real de los KPIs y actualización del gráfico
   function updateDashboard() {
     const rows = document.querySelectorAll('#tableBody tr');
     let totalItems = 0;
@@ -348,16 +372,12 @@
 
     rows.forEach(row => {
       const servicio = row.children[1].querySelector('input').value.trim();
-      const oc = row.children[4].querySelector('input').value.trim();
-      const estado = row.children[6].querySelector('select').value;
+      const oc = row.children[5].querySelector('input').value.trim();
+      const estado = row.children[7].querySelector('select').value;
 
-      // Si la fila tiene al menos una descripción de servicio, la consideramos ítem activo
       if (servicio !== '') {
         totalItems++;
-        
-        if (oc !== '' && oc !== '-') {
-          conOC++;
-        }
+        if (oc !== '' && oc !== '-') conOC++;
 
         if (estado === 'Pendiente') pendientes++;
         else if (estado === 'Facturado') facturados++;
@@ -366,20 +386,17 @@
       }
     });
 
-    // Actualización de los valores de resumen
     document.getElementById('kpi-total').textContent = totalItems;
     document.getElementById('kpi-pendientes').textContent = pendientes;
     document.getElementById('kpi-facturados').textContent = facturados;
     document.getElementById('kpi-oc').textContent = conOC;
 
-    // Actualización del gráfico
     if (chartInstance) {
       chartInstance.data.datasets[0].data = [pendientes, enProceso, facturados, anulados];
       chartInstance.update();
     }
   }
 
-  // Inicialización del gráfico Chart.js
   function initChart() {
     const ctx = document.getElementById('statusChart').getContext('2d');
     chartInstance = new Chart(ctx, {
@@ -396,20 +413,28 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0 }
-          }
-        }
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
       }
     });
   }
 
-  // Ejecutar al cargar la página
+  // Generación y descarga del PDF
+  function exportToPDF() {
+    const element = document.getElementById('pdf-content');
+    
+    // Configuración para orientación horizontal (landscape) y ajuste exacto
+    const opt = {
+      margin:       [10, 10, 10, 10],
+      filename:     'Informe_Mensual_Operaciones.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  }
+
   window.onload = initTable;
 </script>
 
