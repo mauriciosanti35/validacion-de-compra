@@ -1,220 +1,417 @@
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.worksheet.table import Table, TableStyleInfo
-from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.formatting.rule import CellIsRule, FormulaRule
-from openpyxl.comments import Comment
-from openpyxl.chart import BarChart, Reference
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe Mensual de Operaciones</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --dark: #2C3E50;
+      --light-gray: #F8F9FA;
+      --border-gray: #BDC3C7;
+      --input-yellow: #FFFDE7;
+      --green-bg: #C8E6C9;
+      --yellow-bg: #FFF9C4;
+      --red-bg: #FFCDD2;
+      --blue-bg: #BBDEFB;
+    }
 
-wb = openpyxl.Workbook()
-ws = wb.active
-ws.title = "Registro"
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f6f7;
+      color: #333;
+    }
 
-# ---------------- Styles ----------------
-DARK = "2C3E50"
-LIGHT_GRAY = "F8F9FA"
-BORDER_GRAY = "BDC3C7"
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
 
-header_font = Font(name="Arial", bold=True, color="FFFFFF", size=9)
-header_fill = PatternFill("solid", fgColor=DARK)
-title_font = Font(name="Arial", bold=True, color=DARK, size=16)
-subtitle_font = Font(name="Arial", color="7F8C8D", size=10, italic=True)
-meta_font = Font(name="Arial", color="666666", size=9)
-normal_font = Font(name="Arial", size=10)
-bold_font = Font(name="Arial", size=10, bold=True)
-thin_border = Border(
-    left=Side(style="thin", color=BORDER_GRAY),
-    right=Side(style="thin", color=BORDER_GRAY),
-    top=Side(style="thin", color=BORDER_GRAY),
-    bottom=Side(style="thin", color=BORDER_GRAY),
-)
-input_fill = PatternFill("solid", fgColor="FFFDE7")
+    /* Layout general */
+    .top-section {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
 
-widths = {"A": 16, "B": 38, "C": 16, "D": 18, "E": 12, "F": 14, "G": 14, "H": 24}
-for col, w in widths.items():
-    ws.column_dimensions[col].width = w
+    .title-block {
+      flex: 2;
+    }
 
-# ---------------- Title block ----------------
-ws.merge_cells("A1:D1")
-ws["A1"] = "Informe Mensual de Operaciones"
-ws["A1"].font = title_font
+    .title-block h1 {
+      color: var(--dark);
+      margin: 0 0 5px 0;
+      font-size: 24px;
+    }
 
-ws.merge_cells("A2:D2")
-ws["A2"] = "Control de Servicios, Productos y Facturación"
-ws["A2"].font = subtitle_font
+    .title-block h2 {
+      color: #7F8C8D;
+      margin: 0 0 15px 0;
+      font-size: 14px;
+      font-style: italic;
+      font-weight: normal;
+    }
 
-ws["E1"] = "Mes / Periodo:"
-ws["E1"].font = meta_font
-ws["E1"].alignment = Alignment(horizontal="right")
-ws.merge_cells("F1:G1")
-ws["F1"] = "Agosto 2026"
-ws["F1"].font = Font(name="Arial", size=10, bold=True, color=DARK)
-ws["F1"].fill = input_fill
+    .meta-fields {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 15px;
+      align-items: center;
+      font-size: 13px;
+    }
 
-ws["E2"] = "Fecha de emisión:"
-ws["E2"].font = meta_font
-ws["E2"].alignment = Alignment(horizontal="right")
-ws["F2"] = "=TODAY()"
-ws["F2"].number_format = "DD/MM/YYYY"
-ws["F2"].font = bold_font
+    .meta-fields label {
+      color: #666;
+      text-align: right;
+    }
 
-ws.row_dimensions[1].height = 22
-ws.row_dimensions[2].height = 16
-ws.row_dimensions[3].height = 6
+    .meta-fields input {
+      padding: 4px 8px;
+      border: 1px solid var(--border-gray);
+      border-radius: 4px;
+      font-weight: bold;
+    }
 
-# ---------------- Dashboard (rows 1-2, cols I onward) ----------------
-ws["I1"] = "RESUMEN"
-ws["I1"].font = Font(name="Arial", bold=True, size=11, color=DARK)
-ws.merge_cells("I1:J1")
+    /* Dashboard */
+    .dashboard-container {
+      flex: 1;
+      display: flex;
+      gap: 15px;
+      background: var(--light-gray);
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid var(--border-gray);
+    }
 
-dash_labels = ["Total ítems:", "Pendientes:", "Facturados:", "Con OC:"]
-for i, lbl in enumerate(dash_labels):
-    r = 2 + i
-    ws.cell(row=r, column=9, value=lbl).font = meta_font
-    ws.cell(row=r, column=9).alignment = Alignment(horizontal="right")
+    .kpi-block {
+      flex: 1;
+    }
 
-ws.column_dimensions["I"].width = 14
-ws.column_dimensions["J"].width = 10
+    .kpi-block h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: var(--dark);
+      border-bottom: 2px solid var(--dark);
+      padding-bottom: 4px;
+    }
 
-# ---------------- Table header ----------------
-HEADER_ROW = 4
-headers = [
-    "FECHA FACILITIES", "SERVICIO O PRODUCTO", "FECHA LEONARDO",
-    "FECHA CONTABILIDAD", "OC", "FACTURA", "ESTADO", "OBSERVACIONES",
-]
-for i, h in enumerate(headers, start=1):
-    c = ws.cell(row=HEADER_ROW, column=i, value=h)
-    c.font = header_font
-    c.fill = header_fill
-    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    c.border = thin_border
-ws.row_dimensions[HEADER_ROW].height = 24
-ws.freeze_panes = "A5"
+    .kpi-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
 
-# ---------------- Data rows ----------------
-TOTAL_BLANK_ROWS = 98
-first_data_row = HEADER_ROW + 1
-current_row = first_data_row
+    .kpi-value {
+      font-weight: bold;
+    }
 
-def write_row(row_idx, values):
-    for col_idx in range(1, 9):
-        cell = ws.cell(row=row_idx, column=col_idx)
-        val = values[col_idx - 1] if values else None
-        cell.value = val if val not in ("", None) else None
-        cell.font = normal_font
-        cell.border = thin_border
-        cell.alignment = Alignment(horizontal="center" if col_idx in (5, 6, 7) else "left", vertical="center")
+    .chart-container {
+      width: 180px;
+      height: 140px;
+    }
 
-for _ in range(TOTAL_BLANK_ROWS):
-    write_row(current_row, None)
-    current_row += 1
+    /* Tabla */
+    .table-container {
+      overflow-x: auto;
+      max-height: 500px;
+      border: 1px solid var(--border-gray);
+    }
 
-last_data_row = current_row - 1
-data_range = f"A{HEADER_ROW}:H{last_data_row}"
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
 
-# ---------------- Excel Table (adds built-in filter/sort buttons) ----------------
-tab = Table(displayName="RegistroCompras", ref=data_range)
-style = TableStyleInfo(
-    name="TableStyleMedium2", showFirstColumn=False,
-    showLastColumn=False, showRowStripes=True, showColumnStripes=False,
-)
-tab.tableStyleInfo = style
-ws.add_table(tab)
+    th {
+      background-color: var(--dark);
+      color: white;
+      padding: 10px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 11px;
+    }
 
-# ---------------- Dropdown: ESTADO ----------------
-dv_estado = DataValidation(
-    type="list", formula1='"Pendiente,En proceso,Facturado,Anulado"',
-    allow_blank=True, showDropDown=False,
-)
-dv_estado.add(f"G{first_data_row}:G{last_data_row}")
-ws.add_data_validation(dv_estado)
+    td {
+      border: 1px solid var(--border-gray);
+      padding: 4px;
+    }
 
-# ---------------- Date validation ----------------
-for col in ["A", "C", "D"]:
-    dv = DataValidation(
-        type="date", operator="greaterThan", formula1="DATE(2000,1,1)",
-        showErrorMessage=True, errorTitle="Fecha inválida",
-        error="Ingresa una fecha válida (DD-MM-AAAA).",
-    )
-    dv.add(f"{col}{first_data_row}:{col}{last_data_row}")
-    ws.add_data_validation(dv)
+    td input, td select {
+      width: 100%;
+      box-sizing: border-box;
+      border: none;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 4px;
+    }
 
-# ---------------- Conditional formatting on ESTADO ----------------
-green_fill = PatternFill("solid", fgColor="C8E6C9")
-yellow_fill = PatternFill("solid", fgColor="FFF9C4")
-red_fill = PatternFill("solid", fgColor="FFCDD2")
-blue_fill = PatternFill("solid", fgColor="BBDEFB")
+    td input:focus, td select:focus {
+      outline: 2px solid var(--dark);
+      background-color: #fff;
+    }
 
-estado_range = f"G{first_data_row}:G{last_data_row}"
-ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Facturado"'], fill=green_fill))
-ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Pendiente"'], fill=yellow_fill))
-ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Anulado"'], fill=red_fill))
-ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"En proceso"'], fill=blue_fill))
+    /* Formato condicional de la celda Estado */
+    select.status-pendiente { background-color: var(--yellow-bg); }
+    select.status-en-proceso { background-color: var(--blue-bg); }
+    select.status-facturado { background-color: var(--green-bg); }
+    select.status-anulado { background-color: var(--red-bg); }
 
-# Highlight whole row light yellow if ESTADO is Pendiente (visual cue across the row)
-row_rule_range = f"A{first_data_row}:H{last_data_row}"
-ws.conditional_formatting.add(
-    row_rule_range,
-    FormulaRule(formula=[f'$G{first_data_row}="Pendiente"'], fill=PatternFill("solid", fgColor="FFFDE7")),
-)
+    /* Highlight de fila completa si está Pendiente */
+    tr.row-pendiente {
+      background-color: var(--input-yellow);
+    }
 
-# ---------------- Dashboard formulas ----------------
-ws["J2"] = f'=COUNTA(B{first_data_row}:B{last_data_row})'
-ws["J3"] = f'=COUNTIF(G{first_data_row}:G{last_data_row},"Pendiente")'
-ws["J4"] = f'=COUNTIF(G{first_data_row}:G{last_data_row},"Facturado")'
-ws["J5"] = f'=SUMPRODUCT((E{first_data_row}:E{last_data_row}<>"")*(E{first_data_row}:E{last_data_row}<>"-"))'
-for r in range(2, 6):
-    ws.cell(row=r, column=10).font = bold_font
-    ws.cell(row=r, column=10).alignment = Alignment(horizontal="center")
+    /* Leyenda */
+    .instructions {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #555;
+      background: var(--light-gray);
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 4px solid var(--dark);
+    }
 
-# ---------------- Small chart summarizing estado counts ----------------
-ws["I7"] = "Estado"
-ws["J7"] = "Cantidad"
-ws["I7"].font = meta_font
-ws["J7"].font = meta_font
-estados = ["Pendiente", "En proceso", "Facturado", "Anulado"]
-for i, est in enumerate(estados):
-    r = 8 + i
-    ws.cell(row=r, column=9, value=est).font = normal_font
-    ws.cell(row=r, column=10, value=f'=COUNTIF(G{first_data_row}:G{last_data_row},"{est}")').font = normal_font
+    .instructions h4 {
+      margin: 0 0 5px 0;
+      color: var(--dark);
+    }
 
-chart = BarChart()
-chart.type = "col"
-chart.title = "Ítems por estado"
-chart.y_axis.title = "Cantidad"
-chart.legend = None
-chart.width = 9
-chart.height = 6
-data = Reference(ws, min_col=10, min_row=8, max_row=11)
-cats = Reference(ws, min_col=9, min_row=8, max_row=11)
-chart.add_data(data, titles_from_data=False)
-chart.set_categories(cats)
-ws.add_chart(chart, "I13")
+    .btn-add {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: var(--dark);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
 
-# ---------------- Legend ----------------
-legend_row = last_data_row + 3
-ws.cell(row=legend_row, column=1, value="LEYENDA / INSTRUCCIONES").font = bold_font
-legend_row += 1
-ws.cell(row=legend_row, column=1).fill = input_fill
-ws.cell(row=legend_row, column=1).border = thin_border
-ws.cell(row=legend_row, column=2, value="Usa los filtros del encabezado (flechas) para ordenar/filtrar por columna").font = Font(name="Arial", size=9, italic=True, color="666666")
-legend_row += 1
-ws.cell(row=legend_row, column=1, value="ESTADO:").font = Font(name="Arial", size=9, bold=True)
-ws.cell(row=legend_row, column=2, value="Selecciona de la lista desplegable (Pendiente / En proceso / Facturado / Anulado)").font = Font(name="Arial", size=9)
-legend_row += 1
-ws.cell(row=legend_row, column=1, value="Formato de fecha:").font = Font(name="Arial", size=9, bold=True)
-ws.cell(row=legend_row, column=2, value="DD-MM-AAAA (ej: 06-08-2026)").font = Font(name="Arial", size=9)
-legend_row += 1
-ws.cell(row=legend_row, column=1, value="Resumen:").font = Font(name="Arial", size=9, bold=True)
-ws.cell(row=legend_row, column=2, value="Se actualiza automáticamente según lo que escribas en la tabla").font = Font(name="Arial", size=9)
+    .btn-add:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
 
-# ---------------- Comments ----------------
-ws["A4"].comment = Comment("Fecha en que Facilities registra el servicio/producto (DD-MM-AAAA).", "Sistema")
-ws["C4"].comment = Comment("Fecha de registro en Leonardo (DD-MM-AAAA).", "Sistema")
-ws["D4"].comment = Comment("Fecha en que Contabilidad procesa el ítem (DD-MM-AAAA).", "Sistema")
-ws["G4"].comment = Comment("Selecciona un estado de la lista desplegable.", "Sistema")
+<div class="container">
+  <!-- Encabezado y Dashboard -->
+  <div class="top-section">
+    <div class="title-block">
+      <h1>Informe Mensual de Operaciones</h1>
+      <h2>Control de Servicios, Productos y Facturación</h2>
+      
+      <div class="meta-fields">
+        <label for="periodo">Mes / Periodo:</label>
+        <input type="text" id="periodo" value="Agosto 2026" style="background-color: var(--input-yellow);">
+        
+        <label for="emision">Fecha de emisión:</label>
+        <input type="date" id="emision">
+      </div>
+    </div>
 
-ws.sheet_view.showGridLines = False
+    <div class="dashboard-container">
+      <div class="kpi-block">
+        <h3>RESUMEN</h3>
+        <div class="kpi-row"><span>Total ítems:</span> <span class="kpi-value" id="kpi-total">0</span></div>
+        <div class="kpi-row"><span>Pendientes:</span> <span class="kpi-value" id="kpi-pendientes">0</span></div>
+        <div class="kpi-row"><span>Facturados:</span> <span class="kpi-value" id="kpi-facturados">0</span></div>
+        <div class="kpi-row"><span>Con OC:</span> <span class="kpi-value" id="kpi-oc">0</span></div>
+      </div>
+      <div class="chart-container">
+        <canvas id="statusChart"></canvas>
+      </div>
+    </div>
+  </div>
 
-wb.save("/home/claude/Planilla_Validacion_Compras.xlsx")
-print("saved")
+  <!-- Tabla de Registro -->
+  <div class="table-container">
+    <table id="recordsTable">
+      <thead>
+        <tr>
+          <th style="width: 110px;">FECHA FACILITIES</th>
+          <th style="width: 260px;">SERVICIO O PRODUCTO</th>
+          <th style="width: 110px;">FECHA LEONARDO</th>
+          <th style="width: 110px;">FECHA CONTABILIDAD</th>
+          <th style="width: 90px;">OC</th>
+          <th style="width: 90px;">FACTURA</th>
+          <th style="width: 110px;">ESTADO</th>
+          <th>OBSERVACIONES</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- Filas dinámicas creadas por JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn-add" onclick="addRow()">+ Agregar Fila</button>
+
+  <!-- Instrucciones / Leyenda -->
+  <div class="instructions">
+    <h4>LEYENDA / INSTRUCCIONES</h4>
+    <ul>
+      <li><strong>ESTADO:</strong> Selecciona de la lista desplegable (<em>Pendiente, En proceso, Facturado, Anulado</em>) para aplicar formato condicional.</li>
+      <li><strong>Resumen & Gráfico:</strong> Se actualizan automáticamente en tiempo real al ingresar o editar datos.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  // Inicialización de la fecha actual en el campo Fecha de emisión
+  document.getElementById('emision').valueAsDate = new Date();
+
+  const INITIAL_ROWS = 15;
+  let chartInstance = null;
+
+  // Renderizar filas iniciales
+  function initTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    for (let i = 0; i < INITIAL_ROWS; i++) {
+      addRow();
+    }
+    initChart();
+    updateDashboard();
+  }
+
+  // Agregar una nueva fila a la tabla
+  function addRow() {
+    const tbody = document.getElementById('tableBody');
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td><input type="date" oninput="updateDashboard()"></td>
+      <td><input type="text" placeholder="Descripción..." oninput="updateDashboard()"></td>
+      <td><input type="date" oninput="updateDashboard()"></td>
+      <td><input type="date" oninput="updateDashboard()"></td>
+      <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
+      <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
+      <td>
+        <select onchange="handleStatusChange(this)">
+          <option value=""></option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En proceso">En proceso</option>
+          <option value="Facturado">Facturado</option>
+          <option value="Anulado">Anulado</option>
+        </select>
+      </td>
+      <td><input type="text" oninput="updateDashboard()"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Manejador para cambios de estado (Formato condicional)
+  function handleStatusChange(selectEl) {
+    const row = selectEl.closest('tr');
+    const val = selectEl.value;
+
+    // Limpiar clases de formato
+    selectEl.className = '';
+    row.classList.remove('row-pendiente');
+
+    if (val === 'Pendiente') {
+      selectEl.classList.add('status-pendiente');
+      row.classList.add('row-pendiente');
+    } else if (val === 'En proceso') {
+      selectEl.classList.add('status-en-proceso');
+    } else if (val === 'Facturado') {
+      selectEl.classList.add('status-facturado');
+    } else if (val === 'Anulado') {
+      selectEl.classList.add('status-anulado');
+    }
+
+    updateDashboard();
+  }
+
+  // Cálculo en tiempo real de los KPIs y actualización del gráfico
+  function updateDashboard() {
+    const rows = document.querySelectorAll('#tableBody tr');
+    let totalItems = 0;
+    let pendientes = 0;
+    let facturados = 0;
+    let enProceso = 0;
+    let anulados = 0;
+    let conOC = 0;
+
+    rows.forEach(row => {
+      const servicio = row.children[1].querySelector('input').value.trim();
+      const oc = row.children[4].querySelector('input').value.trim();
+      const estado = row.children[6].querySelector('select').value;
+
+      // Si la fila tiene al menos una descripción de servicio, la consideramos ítem activo
+      if (servicio !== '') {
+        totalItems++;
+        
+        if (oc !== '' && oc !== '-') {
+          conOC++;
+        }
+
+        if (estado === 'Pendiente') pendientes++;
+        else if (estado === 'Facturado') facturados++;
+        else if (estado === 'En proceso') enProceso++;
+        else if (estado === 'Anulado') anulados++;
+      }
+    });
+
+    // Actualización de los valores de resumen
+    document.getElementById('kpi-total').textContent = totalItems;
+    document.getElementById('kpi-pendientes').textContent = pendientes;
+    document.getElementById('kpi-facturados').textContent = facturados;
+    document.getElementById('kpi-oc').textContent = conOC;
+
+    // Actualización del gráfico
+    if (chartInstance) {
+      chartInstance.data.datasets[0].data = [pendientes, enProceso, facturados, anulados];
+      chartInstance.update();
+    }
+  }
+
+  // Inicialización del gráfico Chart.js
+  function initChart() {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Pend.', 'Proceso', 'Fact.', 'Anul.'],
+        datasets: [{
+          data: [0, 0, 0, 0],
+          backgroundColor: ['#FFF9C4', '#BBDEFB', '#C8E6C9', '#FFCDD2'],
+          borderColor: ['#FBC02D', '#1976D2', '#388E3C', '#D32F2F'],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 }
+          }
+        }
+      }
+    });
+  }
+
+  // Ejecutar al cargar la página
+  window.onload = initTable;
+</script>
+
+</body>
+</html>
