@@ -154,6 +154,22 @@
       background-color: #fff;
     }
 
+    /* Contenedor híbrido para la celda Fecha Edgar */
+    .edgar-cell {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+
+    .edgar-cell select {
+      width: 65px;
+      font-size: 11px;
+    }
+
+    .edgar-cell input {
+      flex: 1;
+    }
+
     /* Leyenda y Acciones */
     .actions-bar {
       display: flex;
@@ -225,7 +241,7 @@
           <th style="width: 105px;">FECHA FACILITIES</th>
           <th style="width: 120px;">CUENTA</th>
           <th style="width: 220px;">SERVICIO O PRODUCTO</th>
-          <th style="width: 105px;">FECHA EDGAR</th>
+          <th style="width: 140px;">FECHA EDGAR</th>
           <th style="width: 105px;">FECHA LEONARDO</th>
           <th style="width: 105px;">FECHA CONTABILIDAD</th>
           <th style="width: 80px;">OC</th>
@@ -250,7 +266,7 @@
     <h4>LEYENDA / INSTRUCCIONES</h4>
     <ul>
       <li><strong>CUENTA:</strong> Ingrese el nombre o código de cuenta correspondiente.</li>
-      <li><strong>FECHA EDGAR:</strong> Permite seleccionar las opciones <em>Edgar</em> o <em>No aplica</em>.</li>
+      <li><strong>FECHA EDGAR:</strong> Seleccione si ingresará una <em>Fecha</em> o la opción <em>No aplica (N/A)</em>.</li>
       <li><strong>VALOR NETO:</strong> Registre el monto neto del servicio o producto.</li>
       <li><strong>Exportar:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con los datos ingresados.</li>
     </ul>
@@ -272,7 +288,7 @@
     updateDashboard();
   }
 
-  // Agregar fila con FECHA EDGAR a la izquierda de FECHA LEONARDO
+  // Agregar fila con control de FECHA / NO APLICA en columna Edgar
   function addRow() {
     const tbody = document.getElementById('tableBody');
     const tr = document.createElement('tr');
@@ -282,11 +298,13 @@
       <td><input type="text" placeholder="Cuenta..." oninput="updateDashboard()"></td>
       <td><input type="text" placeholder="Descripción..." oninput="updateDashboard()"></td>
       <td>
-        <select onchange="updateDashboard()">
-          <option value=""></option>
-          <option value="Edgar">Edgar</option>
-          <option value="No aplica">No aplica</option>
-        </select>
+        <div class="edgar-cell">
+          <select onchange="handleEdgarTypeChange(this)">
+            <option value="fecha">Fecha</option>
+            <option value="na">N/A</option>
+          </select>
+          <input type="date" oninput="updateDashboard()">
+        </div>
       </td>
       <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="date" oninput="updateDashboard()"></td>
@@ -295,6 +313,20 @@
       <td><input type="text" style="text-align: right;" placeholder="$0" oninput="updateDashboard()"></td>
     `;
     tbody.appendChild(tr);
+  }
+
+  // Alterna entre la entrada de fecha o deshabilitar la casilla si es "No aplica"
+  function handleEdgarTypeChange(selectEl) {
+    const dateInput = selectEl.nextElementSibling;
+    if (selectEl.value === 'na') {
+      dateInput.value = '';
+      dateInput.disabled = true;
+      dateInput.style.opacity = '0.4';
+    } else {
+      dateInput.disabled = false;
+      dateInput.style.opacity = '1';
+    }
+    updateDashboard();
   }
 
   function updateDashboard() {
@@ -321,24 +353,28 @@
     const periodo = document.getElementById('periodo').value || 'Sin_Periodo';
     const emision = document.getElementById('emision').value || '';
 
-    // Encabezados
     const headers = [
       "FECHA FACILITIES", "CUENTA", "SERVICIO O PRODUCTO", 
       "FECHA EDGAR", "FECHA LEONARDO", "FECHA CONTABILIDAD", 
       "OC", "FACTURA", "VALOR NETO"
     ];
 
-    // Mapear filas
     const data = [];
     const rows = document.querySelectorAll('#tableBody tr');
 
     rows.forEach(row => {
       const cells = row.querySelectorAll('td');
+      
+      // Obtener valor de celda FECHA EDGAR (fecha elegida o "No aplica")
+      const edgarSelect = cells[3].querySelector('select').value;
+      const edgarDate = cells[3].querySelector('input').value;
+      const edgarValue = edgarSelect === 'na' ? 'No aplica' : edgarDate;
+
       const rowData = [
         cells[0].querySelector('input').value,
         cells[1].querySelector('input').value,
         cells[2].querySelector('input').value,
-        cells[3].querySelector('select').value,
+        edgarValue,
         cells[4].querySelector('input').value,
         cells[5].querySelector('input').value,
         cells[6].querySelector('input').value,
@@ -346,13 +382,11 @@
         cells[8].querySelector('input').value
       ];
 
-      // Exportar solo las filas que tengan al menos algún dato ingresado
       if (rowData.some(val => val !== '')) {
         data.push(rowData);
       }
     });
 
-    // Construir estructura del libro
     const sheetData = [
       ["Informe Mensual de Operaciones"],
       ["Periodo:", periodo, "", "Fecha de Emisión:", emision],
@@ -365,7 +399,6 @@
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Registro");
 
-    // Descargar archivo
     XLSX.writeFile(workbook, `Informe_Operaciones_${periodo.replace(/\s+/g, '_')}.xlsx`);
   }
 
