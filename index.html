@@ -1,172 +1,220 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Informe Mensual de Servicios y Productos - Control</title>
-    <style>
-        @page {
-            size: A4 landscape;
-            margin: 15mm;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            color: #333;
-            background-color: #fcfcfc;
-            margin: 0;
-            padding: 0;
-            font-size: 11pt;
-        }
-        .container {
-            width: 100%;
-            max-width: 1100px;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.05);
-            box-sizing: border-box;
-        }
-        .header {
-            border-bottom: 2px solid #2c3e50;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-        }
-        .header h1 {
-            margin: 0;
-            color: #2c3e50;
-            font-size: 20pt;
-        }
-        .header .meta {
-            text-align: right;
-            font-size: 10pt;
-            color: #666;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #bdc3c7;
-            padding: 8px 10px;
-            text-align: left;
-            font-size: 10pt;
-        }
-        th {
-            background-color: #2c3e50;
-            color: #ffffff;
-            text-transform: uppercase;
-            font-size: 9pt;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .footer {
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 9pt;
-            color: #7f8c8d;
-            border-top: 1px solid #ecf0f1;
-            padding-top: 10px;
-        }
-        .signatures {
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-around;
-        }
-        .sig-line {
-            width: 250px;
-            border-top: 1px solid #333;
-            text-align: center;
-            padding-top: 5px;
-            font-size: 9pt;
-        }
-    </style>
-</head>
-<body>
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.formatting.rule import CellIsRule, FormulaRule
+from openpyxl.comments import Comment
+from openpyxl.chart import BarChart, Reference
 
-<div class="container">
-    <div class="header">
-        <div>
-            <h1>Informe Mensual de Operaciones</h1>
-            <p style="margin: 5px 0 0 0; color: #7f8c8d;">Control de Servicios, Productos y Facturación</p>
-        </div>
-        <div class="meta">
-            <strong>Mes / Periodo:</strong> Agosto 2026<br>
-            <strong>Fecha de emisión:</strong> 14/09/2026
-        </div>
-    </div>
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "Registro"
 
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 15%;">Fecha Facilities</th>
-                <th style="width: 35%;">Servicio o Producto</th>
-                <th style="width: 15%;">Fecha Leonardo</th>
-                <th style="width: 15%;">Fecha Contabilidad</th>
-                <th style="width: 10%;">OC</th>
-                <th style="width: 10%;">Factura</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Fila de ejemplo (puedes reemplazar o duplicar las filas tr según necesites) -->
-            <tr>
-                <td>06-08-2026</td>
-                <td>Sillas inf. Tl (2)</td>
-                <td>24-07-2026</td>
-                <td>29-07-2026</td>
-                <td class="text-center">PO 6134</td>
-                <td>-</td>
-            </tr>
-            <tr>
-                <td>06-08-2026</td>
-                <td>Pintura Liberada Recat</td>
-                <td>06-08-2026</td>
-                <td>28-08-2026</td>
-                <td class="text-center">PO 6176</td>
-                <td>-</td>
-            </tr>
-            <tr>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td class="text-center">&nbsp;</td>
-                <td>&nbsp;</td>
-            </tr>
-            <tr>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
-                <td class="text-center">&nbsp;</td>
-                <td>&nbsp;</td>
-            </tr>
-        </tbody>
-    </table>
+# ---------------- Styles ----------------
+DARK = "2C3E50"
+LIGHT_GRAY = "F8F9FA"
+BORDER_GRAY = "BDC3C7"
 
-    <div class="signatures">
-        <div class="sig-line">
-            Supervisor de Operaciones
-        </div>
-        <div class="sig-line">
-            Vº Bº Administración / Contabilidad
-        </div>
-    </div>
+header_font = Font(name="Arial", bold=True, color="FFFFFF", size=9)
+header_fill = PatternFill("solid", fgColor=DARK)
+title_font = Font(name="Arial", bold=True, color=DARK, size=16)
+subtitle_font = Font(name="Arial", color="7F8C8D", size=10, italic=True)
+meta_font = Font(name="Arial", color="666666", size=9)
+normal_font = Font(name="Arial", size=10)
+bold_font = Font(name="Arial", size=10, bold=True)
+thin_border = Border(
+    left=Side(style="thin", color=BORDER_GRAY),
+    right=Side(style="thin", color=BORDER_GRAY),
+    top=Side(style="thin", color=BORDER_GRAY),
+    bottom=Side(style="thin", color=BORDER_GRAY),
+)
+input_fill = PatternFill("solid", fgColor="FFFDE7")
 
-    <div class="footer">
-        <span>Sistema de Respaldo de Operaciones - Control Interno</span>
-        <span>Página 1 de 1</span>
-    </div>
-</div>
+widths = {"A": 16, "B": 38, "C": 16, "D": 18, "E": 12, "F": 14, "G": 14, "H": 24}
+for col, w in widths.items():
+    ws.column_dimensions[col].width = w
 
-</body>
-</html>
+# ---------------- Title block ----------------
+ws.merge_cells("A1:D1")
+ws["A1"] = "Informe Mensual de Operaciones"
+ws["A1"].font = title_font
+
+ws.merge_cells("A2:D2")
+ws["A2"] = "Control de Servicios, Productos y Facturación"
+ws["A2"].font = subtitle_font
+
+ws["E1"] = "Mes / Periodo:"
+ws["E1"].font = meta_font
+ws["E1"].alignment = Alignment(horizontal="right")
+ws.merge_cells("F1:G1")
+ws["F1"] = "Agosto 2026"
+ws["F1"].font = Font(name="Arial", size=10, bold=True, color=DARK)
+ws["F1"].fill = input_fill
+
+ws["E2"] = "Fecha de emisión:"
+ws["E2"].font = meta_font
+ws["E2"].alignment = Alignment(horizontal="right")
+ws["F2"] = "=TODAY()"
+ws["F2"].number_format = "DD/MM/YYYY"
+ws["F2"].font = bold_font
+
+ws.row_dimensions[1].height = 22
+ws.row_dimensions[2].height = 16
+ws.row_dimensions[3].height = 6
+
+# ---------------- Dashboard (rows 1-2, cols I onward) ----------------
+ws["I1"] = "RESUMEN"
+ws["I1"].font = Font(name="Arial", bold=True, size=11, color=DARK)
+ws.merge_cells("I1:J1")
+
+dash_labels = ["Total ítems:", "Pendientes:", "Facturados:", "Con OC:"]
+for i, lbl in enumerate(dash_labels):
+    r = 2 + i
+    ws.cell(row=r, column=9, value=lbl).font = meta_font
+    ws.cell(row=r, column=9).alignment = Alignment(horizontal="right")
+
+ws.column_dimensions["I"].width = 14
+ws.column_dimensions["J"].width = 10
+
+# ---------------- Table header ----------------
+HEADER_ROW = 4
+headers = [
+    "FECHA FACILITIES", "SERVICIO O PRODUCTO", "FECHA LEONARDO",
+    "FECHA CONTABILIDAD", "OC", "FACTURA", "ESTADO", "OBSERVACIONES",
+]
+for i, h in enumerate(headers, start=1):
+    c = ws.cell(row=HEADER_ROW, column=i, value=h)
+    c.font = header_font
+    c.fill = header_fill
+    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    c.border = thin_border
+ws.row_dimensions[HEADER_ROW].height = 24
+ws.freeze_panes = "A5"
+
+# ---------------- Data rows ----------------
+TOTAL_BLANK_ROWS = 98
+first_data_row = HEADER_ROW + 1
+current_row = first_data_row
+
+def write_row(row_idx, values):
+    for col_idx in range(1, 9):
+        cell = ws.cell(row=row_idx, column=col_idx)
+        val = values[col_idx - 1] if values else None
+        cell.value = val if val not in ("", None) else None
+        cell.font = normal_font
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center" if col_idx in (5, 6, 7) else "left", vertical="center")
+
+for _ in range(TOTAL_BLANK_ROWS):
+    write_row(current_row, None)
+    current_row += 1
+
+last_data_row = current_row - 1
+data_range = f"A{HEADER_ROW}:H{last_data_row}"
+
+# ---------------- Excel Table (adds built-in filter/sort buttons) ----------------
+tab = Table(displayName="RegistroCompras", ref=data_range)
+style = TableStyleInfo(
+    name="TableStyleMedium2", showFirstColumn=False,
+    showLastColumn=False, showRowStripes=True, showColumnStripes=False,
+)
+tab.tableStyleInfo = style
+ws.add_table(tab)
+
+# ---------------- Dropdown: ESTADO ----------------
+dv_estado = DataValidation(
+    type="list", formula1='"Pendiente,En proceso,Facturado,Anulado"',
+    allow_blank=True, showDropDown=False,
+)
+dv_estado.add(f"G{first_data_row}:G{last_data_row}")
+ws.add_data_validation(dv_estado)
+
+# ---------------- Date validation ----------------
+for col in ["A", "C", "D"]:
+    dv = DataValidation(
+        type="date", operator="greaterThan", formula1="DATE(2000,1,1)",
+        showErrorMessage=True, errorTitle="Fecha inválida",
+        error="Ingresa una fecha válida (DD-MM-AAAA).",
+    )
+    dv.add(f"{col}{first_data_row}:{col}{last_data_row}")
+    ws.add_data_validation(dv)
+
+# ---------------- Conditional formatting on ESTADO ----------------
+green_fill = PatternFill("solid", fgColor="C8E6C9")
+yellow_fill = PatternFill("solid", fgColor="FFF9C4")
+red_fill = PatternFill("solid", fgColor="FFCDD2")
+blue_fill = PatternFill("solid", fgColor="BBDEFB")
+
+estado_range = f"G{first_data_row}:G{last_data_row}"
+ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Facturado"'], fill=green_fill))
+ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Pendiente"'], fill=yellow_fill))
+ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"Anulado"'], fill=red_fill))
+ws.conditional_formatting.add(estado_range, CellIsRule(operator="equal", formula=['"En proceso"'], fill=blue_fill))
+
+# Highlight whole row light yellow if ESTADO is Pendiente (visual cue across the row)
+row_rule_range = f"A{first_data_row}:H{last_data_row}"
+ws.conditional_formatting.add(
+    row_rule_range,
+    FormulaRule(formula=[f'$G{first_data_row}="Pendiente"'], fill=PatternFill("solid", fgColor="FFFDE7")),
+)
+
+# ---------------- Dashboard formulas ----------------
+ws["J2"] = f'=COUNTA(B{first_data_row}:B{last_data_row})'
+ws["J3"] = f'=COUNTIF(G{first_data_row}:G{last_data_row},"Pendiente")'
+ws["J4"] = f'=COUNTIF(G{first_data_row}:G{last_data_row},"Facturado")'
+ws["J5"] = f'=SUMPRODUCT((E{first_data_row}:E{last_data_row}<>"")*(E{first_data_row}:E{last_data_row}<>"-"))'
+for r in range(2, 6):
+    ws.cell(row=r, column=10).font = bold_font
+    ws.cell(row=r, column=10).alignment = Alignment(horizontal="center")
+
+# ---------------- Small chart summarizing estado counts ----------------
+ws["I7"] = "Estado"
+ws["J7"] = "Cantidad"
+ws["I7"].font = meta_font
+ws["J7"].font = meta_font
+estados = ["Pendiente", "En proceso", "Facturado", "Anulado"]
+for i, est in enumerate(estados):
+    r = 8 + i
+    ws.cell(row=r, column=9, value=est).font = normal_font
+    ws.cell(row=r, column=10, value=f'=COUNTIF(G{first_data_row}:G{last_data_row},"{est}")').font = normal_font
+
+chart = BarChart()
+chart.type = "col"
+chart.title = "Ítems por estado"
+chart.y_axis.title = "Cantidad"
+chart.legend = None
+chart.width = 9
+chart.height = 6
+data = Reference(ws, min_col=10, min_row=8, max_row=11)
+cats = Reference(ws, min_col=9, min_row=8, max_row=11)
+chart.add_data(data, titles_from_data=False)
+chart.set_categories(cats)
+ws.add_chart(chart, "I13")
+
+# ---------------- Legend ----------------
+legend_row = last_data_row + 3
+ws.cell(row=legend_row, column=1, value="LEYENDA / INSTRUCCIONES").font = bold_font
+legend_row += 1
+ws.cell(row=legend_row, column=1).fill = input_fill
+ws.cell(row=legend_row, column=1).border = thin_border
+ws.cell(row=legend_row, column=2, value="Usa los filtros del encabezado (flechas) para ordenar/filtrar por columna").font = Font(name="Arial", size=9, italic=True, color="666666")
+legend_row += 1
+ws.cell(row=legend_row, column=1, value="ESTADO:").font = Font(name="Arial", size=9, bold=True)
+ws.cell(row=legend_row, column=2, value="Selecciona de la lista desplegable (Pendiente / En proceso / Facturado / Anulado)").font = Font(name="Arial", size=9)
+legend_row += 1
+ws.cell(row=legend_row, column=1, value="Formato de fecha:").font = Font(name="Arial", size=9, bold=True)
+ws.cell(row=legend_row, column=2, value="DD-MM-AAAA (ej: 06-08-2026)").font = Font(name="Arial", size=9)
+legend_row += 1
+ws.cell(row=legend_row, column=1, value="Resumen:").font = Font(name="Arial", size=9, bold=True)
+ws.cell(row=legend_row, column=2, value="Se actualiza automáticamente según lo que escribas en la tabla").font = Font(name="Arial", size=9)
+
+# ---------------- Comments ----------------
+ws["A4"].comment = Comment("Fecha en que Facilities registra el servicio/producto (DD-MM-AAAA).", "Sistema")
+ws["C4"].comment = Comment("Fecha de registro en Leonardo (DD-MM-AAAA).", "Sistema")
+ws["D4"].comment = Comment("Fecha en que Contabilidad procesa el ítem (DD-MM-AAAA).", "Sistema")
+ws["G4"].comment = Comment("Selecciona un estado de la lista desplegable.", "Sistema")
+
+ws.sheet_view.showGridLines = False
+
+wb.save("/home/claude/Planilla_Validacion_Compras.xlsx")
+print("saved")
