@@ -4,19 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Informe Mensual de Operaciones</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Librería para exportar a PDF en el navegador -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Librería para generar y descargar archivos Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --dark: #2C3E50;
       --light-gray: #F8F9FA;
       --border-gray: #BDC3C7;
       --input-yellow: #FFFDE7;
-      --green-bg: #C8E6C9;
-      --yellow-bg: #FFF9C4;
-      --red-bg: #FFCDD2;
-      --blue-bg: #BBDEFB;
     }
 
     body {
@@ -176,7 +171,7 @@
     }
 
     .btn-add { background-color: var(--dark); }
-    .btn-pdf { background-color: #27AE60; }
+    .btn-excel { background-color: #1D6F42; }
     .btn:hover { opacity: 0.9; }
 
     .instructions {
@@ -193,19 +188,11 @@
       margin: 0 0 5px 0;
       color: var(--dark);
     }
-
-    /* Ocultar elementos interactivos/botones en el PDF */
-    @media print {
-      .actions-bar, .instructions { display: none !important; }
-      .table-container { max-height: none !important; overflow: visible !important; }
-      body { background: white; margin: 0; }
-      .container { box-shadow: none; border: none; padding: 0; }
-    }
   </style>
 </head>
 <body>
 
-<div class="container" id="pdf-content">
+<div class="container" id="app-content">
   <!-- Encabezado y Dashboard -->
   <div class="top-section">
     <div class="title-block">
@@ -238,8 +225,8 @@
           <th style="width: 105px;">FECHA FACILITIES</th>
           <th style="width: 120px;">CUENTA</th>
           <th style="width: 220px;">SERVICIO O PRODUCTO</th>
-          <th style="width: 105px;">FECHA LEONARDO</th>
           <th style="width: 105px;">FECHA EDGAR</th>
+          <th style="width: 105px;">FECHA LEONARDO</th>
           <th style="width: 105px;">FECHA CONTABILIDAD</th>
           <th style="width: 80px;">OC</th>
           <th style="width: 80px;">FACTURA</th>
@@ -255,7 +242,7 @@
   <!-- Botones de Acción -->
   <div class="actions-bar">
     <button class="btn btn-add" onclick="addRow()">+ Agregar Fila</button>
-    <button class="btn btn-pdf" onclick="exportToPDF()">Descargar PDF</button>
+    <button class="btn btn-excel" onclick="exportToExcel()">Descargar Excel</button>
   </div>
 
   <!-- Instrucciones / Leyenda -->
@@ -265,7 +252,7 @@
       <li><strong>CUENTA:</strong> Ingrese el nombre o código de cuenta correspondiente.</li>
       <li><strong>FECHA EDGAR:</strong> Permite seleccionar las opciones <em>Edgar</em> o <em>No aplica</em>.</li>
       <li><strong>VALOR NETO:</strong> Registre el monto neto del servicio o producto.</li>
-      <li><strong>Exportar:</strong> Presiona "Descargar PDF" para generar un reporte del informe.</li>
+      <li><strong>Exportar:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con los datos ingresados.</li>
     </ul>
   </div>
 </div>
@@ -285,7 +272,7 @@
     updateDashboard();
   }
 
-  // Agregar una nueva fila con la estructura actualizada
+  // Agregar fila con FECHA EDGAR a la izquierda de FECHA LEONARDO
   function addRow() {
     const tbody = document.getElementById('tableBody');
     const tr = document.createElement('tr');
@@ -294,7 +281,6 @@
       <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="text" placeholder="Cuenta..." oninput="updateDashboard()"></td>
       <td><input type="text" placeholder="Descripción..." oninput="updateDashboard()"></td>
-      <td><input type="date" oninput="updateDashboard()"></td>
       <td>
         <select onchange="updateDashboard()">
           <option value=""></option>
@@ -302,6 +288,7 @@
           <option value="No aplica">No aplica</option>
         </select>
       </td>
+      <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="date" oninput="updateDashboard()"></td>
       <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
       <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
@@ -329,19 +316,57 @@
     document.getElementById('kpi-oc').textContent = conOC;
   }
 
-  // Generación y descarga del PDF
-  function exportToPDF() {
-    const element = document.getElementById('pdf-content');
-    
-    const opt = {
-      margin:       [10, 10, 10, 10],
-      filename:     'Informe_Mensual_Operaciones.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
+  // Función para exportar la tabla a un archivo de Excel (.xlsx)
+  function exportToExcel() {
+    const periodo = document.getElementById('periodo').value || 'Sin_Periodo';
+    const emision = document.getElementById('emision').value || '';
 
-    html2pdf().set(opt).from(element).save();
+    // Encabezados
+    const headers = [
+      "FECHA FACILITIES", "CUENTA", "SERVICIO O PRODUCTO", 
+      "FECHA EDGAR", "FECHA LEONARDO", "FECHA CONTABILIDAD", 
+      "OC", "FACTURA", "VALOR NETO"
+    ];
+
+    // Mapear filas
+    const data = [];
+    const rows = document.querySelectorAll('#tableBody tr');
+
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      const rowData = [
+        cells[0].querySelector('input').value,
+        cells[1].querySelector('input').value,
+        cells[2].querySelector('input').value,
+        cells[3].querySelector('select').value,
+        cells[4].querySelector('input').value,
+        cells[5].querySelector('input').value,
+        cells[6].querySelector('input').value,
+        cells[7].querySelector('input').value,
+        cells[8].querySelector('input').value
+      ];
+
+      // Exportar solo las filas que tengan al menos algún dato ingresado
+      if (rowData.some(val => val !== '')) {
+        data.push(rowData);
+      }
+    });
+
+    // Construir estructura del libro
+    const sheetData = [
+      ["Informe Mensual de Operaciones"],
+      ["Periodo:", periodo, "", "Fecha de Emisión:", emision],
+      [],
+      headers,
+      ...data
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registro");
+
+    // Descargar archivo
+    XLSX.writeFile(workbook, `Informe_Operaciones_${periodo.replace(/\s+/g, '_')}.xlsx`);
   }
 
   window.onload = initTable;
