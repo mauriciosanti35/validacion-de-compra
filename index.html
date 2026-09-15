@@ -3,9 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Informe Mensual de Operaciones</title>
+  <title>Informe Mensual de Operaciones - Tiempo Real</title>
   <!-- ExcelJS -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  
+  <!-- Módulos de Firebase SDK (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // --------------------------------------------------------------------------
+    // CONFIGURACIÓN DE FIREBASE:
+    // Reemplaza los siguientes valores con los que te entrega tu proyecto de Firebase
+    // --------------------------------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "TU_PROYECTO.firebaseapp.com",
+      databaseURL: "https://TU_PROYECTO-default-rtdb.firebaseio.com",
+      projectId: "TU_PROYECTO",
+      storageBucket: "TU_PROYECTO.appspot.com",
+      messagingSenderId: "TU_SENDER_ID",
+      appId: "TU_APP_ID"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const docRef = ref(db, 'informe_operaciones');
+
+    let isRemoteUpdate = false;
+    let saveTimer = null;
+
+    // Escuchar cambios en tiempo real desde Firebase
+    onValue(docRef, (snapshot) => {
+      const data = snapshot.val();
+      isRemoteUpdate = true;
+      if (data) {
+        window.renderWithData(data);
+      } else {
+        window.renderWithData(null);
+      }
+      isRemoteUpdate = false;
+      const el = document.getElementById('saveStatus');
+      el.textContent = 'Sincronizado ☁️ ' + new Date().toLocaleTimeString('es-CL');
+      setTimeout(() => { el.textContent = ''; }, 2000);
+    });
+
+    // Guardar cambios en Firebase
+    window.scheduleSave = function() {
+      if (isRemoteUpdate) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        const payload = {
+          periodo: document.getElementById('periodo').value,
+          emision: document.getElementById('emision').value,
+          rows: window.collectRowsRaw(),
+        };
+        set(docRef, payload);
+      }, 400);
+    };
+  </script>
+
   <style>
     :root {
       --dark: #2C3E50;
@@ -13,7 +71,6 @@
       --border-gray: #BDC3C7;
       --input-yellow: #FFFDE7;
       --blue: #2980b9;
-      --purple: #8e44ad;
     }
 
     body {
@@ -173,15 +230,14 @@
 
     .btn-add { background-color: var(--dark); }
     .btn-excel { background-color: #1D6F42; }
-    .btn-export { background-color: var(--blue); }
-    .btn-import { background-color: var(--purple); }
     .btn-clear { background-color: #c0392b; }
     .btn:hover { opacity: 0.9; }
 
     #saveStatus {
       font-size: 12px;
-      color: #2e7d32;
-      min-width: 130px;
+      color: #27ae60;
+      font-weight: bold;
+      min-width: 150px;
     }
 
     .instructions {
@@ -240,7 +296,7 @@
         </tr>
       </thead>
       <tbody id="tableBody">
-        <!-- Filas dinámicas creadas por JavaScript -->
+        <!-- Filas dinámicas -->
       </tbody>
     </table>
   </div>
@@ -248,60 +304,21 @@
   <div class="actions-bar">
     <button class="btn btn-add" onclick="addRow()">+ Agregar Fila</button>
     <button class="btn btn-excel" onclick="exportToExcel()">Descargar Excel</button>
-    <button class="btn btn-export" onclick="exportJSON()">Exportar Datos (JSON)</button>
-    <button class="btn btn-import" onclick="document.getElementById('importFile').click()">Cargar Datos (JSON)</button>
-    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)">
     <button class="btn btn-clear" onclick="clearAll()">Vaciar planilla</button>
     <span id="saveStatus"></span>
   </div>
 
   <div class="instructions">
-    <h4>LEYENDA / INSTRUCCIONES</h4>
+    <h4>INFORMACIÓN DE SINCRONIZACIÓN</h4>
     <ul>
-      <li><strong>CUENTA:</strong> Ingrese el nombre o código de cuenta correspondiente.</li>
-      <li><strong>FECHA EDGAR:</strong> Seleccione si ingresará una <em>Fecha</em> o la opción <em>No aplica (N/A)</em>.</li>
-      <li><strong>VALOR NETO:</strong> Registre el monto neto del servicio o producto.</li>
-      <li><strong>Guardado automático:</strong> Todo lo que escribas queda guardado localmente en este navegador.</li>
-      <li><strong>Compartir datos con otra persona:</strong>
-        <ol>
-          <li>Presiona <strong>"Exportar Datos (JSON)"</strong> para guardar un archivo con tus datos ingresados.</li>
-          <li>Envía ese archivo descargado a la otra persona junto con esta página HTML.</li>
-          <li>La otra persona abre este HTML y presiona <strong>"Cargar Datos (JSON)"</strong> para cargar todos tus registros.</li>
-        </ol>
-      </li>
-      <li><strong>Exportar a Excel:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con formato (colores, encabezado, bordes).</li>
+      <li><strong>Edición colaborativa:</strong> Esta versión está configurada para guardar datos en la nube. Los cambios que realices se verán en tiempo real en la pantalla de tu supervisora (y viceversa).</li>
+      <li><strong>Exportar a Excel:</strong> Puedes descargar en cualquier momento la versión actualizada en formato Excel con colores y estilo profesional.</li>
     </ul>
   </div>
 </div>
 
 <script>
-  // ---------- Almacenamiento local (persistencia) ----------
-  const STORAGE_KEY = 'informeOperacionesData_v1';
-  let saveTimer = null;
-
-  function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveData, 250);
-  }
-
-  function saveData() {
-    const payload = {
-      periodo: document.getElementById('periodo').value,
-      emision: document.getElementById('emision').value,
-      rows: collectRowsRaw(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    const el = document.getElementById('saveStatus');
-    el.textContent = 'Guardado ✓ ' + new Date().toLocaleTimeString('es-CL');
-    clearTimeout(scheduleSave._flash);
-    scheduleSave._flash = setTimeout(() => { el.textContent = ''; }, 2000);
-  }
-
-  function loadData() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch (e) { return null; }
-  }
+  const INITIAL_ROWS = 15;
 
   function collectRowsRaw() {
     const out = [];
@@ -323,14 +340,6 @@
       });
     });
     return out;
-  }
-
-  // ---------- Construcción de la tabla ----------
-  const INITIAL_ROWS = 15;
-
-  function initTable() {
-    const saved = loadData();
-    renderWithData(saved);
   }
 
   function renderWithData(data) {
@@ -381,8 +390,8 @@
     `;
     tbody.appendChild(tr);
 
-    tr.addEventListener('input', () => { updateDashboard(); scheduleSave(); });
-    tr.addEventListener('change', () => { updateDashboard(); scheduleSave(); });
+    tr.addEventListener('input', () => { updateDashboard(); window.scheduleSave(); });
+    tr.addEventListener('change', () => { updateDashboard(); window.scheduleSave(); });
   }
 
   function escapeAttr(v) {
@@ -394,7 +403,7 @@
     const tr = btn.closest('tr');
     tr.remove();
     updateDashboard();
-    scheduleSave();
+    window.scheduleSave();
   }
 
   function handleEdgarTypeChange(selectEl) {
@@ -408,7 +417,7 @@
       dateInput.style.opacity = '1';
     }
     updateDashboard();
-    scheduleSave();
+    window.scheduleSave();
   }
 
   function updateDashboard() {
@@ -431,57 +440,20 @@
   }
 
   function clearAll() {
-    if (!confirm('¿Seguro que quieres vaciar toda la planilla? Esto borra los datos guardados en este navegador y no se puede deshacer.')) return;
-    localStorage.removeItem(STORAGE_KEY);
+    if (!confirm('¿Seguro que quieres vaciar toda la planilla para ambos usuarios?')) return;
     document.getElementById('periodo').value = 'Agosto 2026';
     document.getElementById('emision').valueAsDate = new Date();
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
     for (let i = 0; i < INITIAL_ROWS; i++) addRow();
     updateDashboard();
-    saveData();
+    window.scheduleSave();
   }
 
-  // ---------- Funciones de Compartir (JSON) ----------
-  function exportJSON() {
-    const payload = {
-      periodo: document.getElementById('periodo').value,
-      emision: document.getElementById('emision').value,
-      rows: collectRowsRaw(),
-    };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
-    const downloadAnchor = document.createElement('a');
-    const filename = `Datos_Informe_Operaciones_${(payload.periodo || 'Periodo').replace(/\s+/g, '_')}.json`;
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", filename);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  }
+  document.getElementById('periodo').addEventListener('input', () => window.scheduleSave());
+  document.getElementById('emision').addEventListener('change', () => window.scheduleSave());
 
-  function importJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const parsed = JSON.parse(e.target.result);
-        renderWithData(parsed);
-        saveData();
-        alert('¡Datos cargados correctamente!');
-      } catch (err) {
-        alert('Error: El archivo seleccionado no es un JSON válido.');
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  }
-
-  document.getElementById('periodo').addEventListener('input', scheduleSave);
-  document.getElementById('emision').addEventListener('change', scheduleSave);
-
-  // ---------- Exportar a Excel ----------
+  // Exportación a Excel
   function parseValorNeto(str) {
     if (!str) return '';
     const cleaned = str.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
@@ -518,7 +490,6 @@
     const borderAll = { top: thin, left: thin, bottom: thin, right: thin };
     const DARK = 'FF2C3E50';
 
-    // Título
     sheet.mergeCells('A1:D1');
     sheet.getCell('A1').value = 'Informe Mensual de Operaciones';
     sheet.getCell('A1').font = { name: 'Arial', bold: true, size: 16, color: { argb: DARK } };
@@ -538,7 +509,6 @@
     sheet.getCell('G2').value = emision;
     sheet.getCell('G2').font = { name: 'Arial', bold: true, size: 10, color: { argb: DARK } };
 
-    // Encabezado
     const headerRow = sheet.getRow(4);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);
@@ -550,7 +520,6 @@
     });
     headerRow.height = 24;
 
-    // Filas de datos
     rawRows.forEach((r, idx) => {
       const edgarValue = r.edgarType === 'na' ? 'No aplica' : (r.edgarDate || '');
       const values = [
@@ -587,8 +556,6 @@
     a.click();
     URL.revokeObjectURL(url);
   }
-
-  window.onload = initTable;
 </script>
 
 </body>
