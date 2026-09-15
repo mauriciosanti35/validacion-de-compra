@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Informe Mensual de Operaciones</title>
-  <!-- Librería para generar y descargar archivos Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- ExcelJS: a diferencia de SheetJS (xlsx.js), SÍ soporta escribir colores, bordes y
+       fuentes en el .xlsx generado, que es lo que necesitamos para mantener el formato. -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <style>
     :root {
       --dark: #2C3E50;
@@ -30,17 +31,15 @@
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
-    /* Layout general */
     .top-section {
       display: flex;
       justify-content: space-between;
       gap: 20px;
       margin-bottom: 20px;
+      flex-wrap: wrap;
     }
 
-    .title-block {
-      flex: 2;
-    }
+    .title-block { flex: 2; min-width: 260px; }
 
     .title-block h1 {
       color: var(--dark);
@@ -64,10 +63,7 @@
       font-size: 13px;
     }
 
-    .meta-fields label {
-      color: #666;
-      text-align: right;
-    }
+    .meta-fields label { color: #666; text-align: right; }
 
     .meta-fields input {
       padding: 4px 8px;
@@ -76,9 +72,9 @@
       font-weight: bold;
     }
 
-    /* Dashboard */
     .dashboard-container {
       flex: 1;
+      min-width: 180px;
       display: flex;
       gap: 15px;
       background: var(--light-gray);
@@ -87,9 +83,7 @@
       border: 1px solid var(--border-gray);
     }
 
-    .kpi-block {
-      flex: 1;
-    }
+    .kpi-block { flex: 1; }
 
     .kpi-block h3 {
       margin: 0 0 10px 0;
@@ -106,22 +100,15 @@
       margin-bottom: 6px;
     }
 
-    .kpi-value {
-      font-weight: bold;
-    }
+    .kpi-value { font-weight: bold; }
 
-    /* Tabla */
     .table-container {
       overflow-x: auto;
       max-height: 500px;
       border: 1px solid var(--border-gray);
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
 
     th {
       background-color: var(--dark);
@@ -134,10 +121,7 @@
       font-size: 11px;
     }
 
-    td {
-      border: 1px solid var(--border-gray);
-      padding: 4px;
-    }
+    td { border: 1px solid var(--border-gray); padding: 4px; }
 
     td input, td select {
       width: 100%;
@@ -154,27 +138,27 @@
       background-color: #fff;
     }
 
-    /* Contenedor híbrido para la celda Fecha Edgar */
-    .edgar-cell {
-      display: flex;
-      gap: 2px;
-      align-items: center;
-    }
+    .edgar-cell { display: flex; gap: 2px; align-items: center; }
+    .edgar-cell select { width: 65px; font-size: 11px; }
+    .edgar-cell input { flex: 1; }
 
-    .edgar-cell select {
-      width: 65px;
-      font-size: 11px;
+    td.col-del { text-align: center; width: 30px; padding: 0; }
+    td.col-del button {
+      background: transparent;
+      border: none;
+      color: #c0392b;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px 8px;
     }
+    td.col-del button:hover { background: #ffe0e0; }
 
-    .edgar-cell input {
-      flex: 1;
-    }
-
-    /* Leyenda y Acciones */
     .actions-bar {
       display: flex;
       gap: 10px;
       margin-top: 15px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .btn {
@@ -188,7 +172,14 @@
 
     .btn-add { background-color: var(--dark); }
     .btn-excel { background-color: #1D6F42; }
+    .btn-clear { background-color: #c0392b; }
     .btn:hover { opacity: 0.9; }
+
+    #saveStatus {
+      font-size: 12px;
+      color: #2e7d32;
+      min-width: 130px;
+    }
 
     .instructions {
       margin-top: 20px;
@@ -200,25 +191,21 @@
       border-left: 4px solid var(--dark);
     }
 
-    .instructions h4 {
-      margin: 0 0 5px 0;
-      color: var(--dark);
-    }
+    .instructions h4 { margin: 0 0 5px 0; color: var(--dark); }
   </style>
 </head>
 <body>
 
 <div class="container" id="app-content">
-  <!-- Encabezado y Dashboard -->
   <div class="top-section">
     <div class="title-block">
       <h1>Informe Mensual de Operaciones</h1>
       <h2>Control de Servicios, Productos y Facturación</h2>
-      
+
       <div class="meta-fields">
         <label for="periodo">Mes / Periodo:</label>
         <input type="text" id="periodo" value="Agosto 2026" style="background-color: var(--input-yellow);">
-        
+
         <label for="emision">Fecha de emisión:</label>
         <input type="date" id="emision">
       </div>
@@ -233,7 +220,6 @@
     </div>
   </div>
 
-  <!-- Tabla de Registro -->
   <div class="table-container">
     <table id="recordsTable">
       <thead>
@@ -247,6 +233,7 @@
           <th style="width: 80px;">OC</th>
           <th style="width: 80px;">FACTURA</th>
           <th style="width: 110px;">VALOR NETO</th>
+          <th style="width: 30px;"></th>
         </tr>
       </thead>
       <tbody id="tableBody">
@@ -255,67 +242,147 @@
     </table>
   </div>
 
-  <!-- Botones de Acción -->
   <div class="actions-bar">
     <button class="btn btn-add" onclick="addRow()">+ Agregar Fila</button>
     <button class="btn btn-excel" onclick="exportToExcel()">Descargar Excel</button>
+    <button class="btn btn-clear" onclick="clearAll()">Vaciar planilla</button>
+    <span id="saveStatus"></span>
   </div>
 
-  <!-- Instrucciones / Leyenda -->
   <div class="instructions">
     <h4>LEYENDA / INSTRUCCIONES</h4>
     <ul>
       <li><strong>CUENTA:</strong> Ingrese el nombre o código de cuenta correspondiente.</li>
       <li><strong>FECHA EDGAR:</strong> Seleccione si ingresará una <em>Fecha</em> o la opción <em>No aplica (N/A)</em>.</li>
       <li><strong>VALOR NETO:</strong> Registre el monto neto del servicio o producto.</li>
-      <li><strong>Exportar:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con los datos ingresados.</li>
+      <li><strong>Guardado automático:</strong> Todo lo que escribas queda guardado en este navegador; si cierras o recargas la página, tus datos siguen ahí.</li>
+      <li><strong>Exportar:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con el mismo formato de esta planilla (colores, encabezado, bordes).</li>
     </ul>
   </div>
 </div>
 
 <script>
-  // Inicialización de la fecha actual
-  document.getElementById('emision').valueAsDate = new Date();
+  // ---------- Almacenamiento local (persistencia) ----------
+  const STORAGE_KEY = 'informeOperacionesData_v1';
+  let saveTimer = null;
 
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveData, 250);
+  }
+
+  function saveData() {
+    const payload = {
+      periodo: document.getElementById('periodo').value,
+      emision: document.getElementById('emision').value,
+      rows: collectRowsRaw(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const el = document.getElementById('saveStatus');
+    el.textContent = 'Guardado ✓ ' + new Date().toLocaleTimeString('es-CL');
+    clearTimeout(scheduleSave._flash);
+    scheduleSave._flash = setTimeout(() => { el.textContent = ''; }, 2000);
+  }
+
+  function loadData() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  // Lee el estado actual de cada fila del DOM, tal cual está, sin filtrar vacías
+  function collectRowsRaw() {
+    const out = [];
+    document.querySelectorAll('#tableBody tr').forEach(row => {
+      const cells = row.querySelectorAll('td');
+      const edgarSelect = cells[3].querySelector('select').value;
+      const edgarDate = cells[3].querySelector('input').value;
+      out.push({
+        fechaFacilities: cells[0].querySelector('input').value,
+        cuenta: cells[1].querySelector('input').value,
+        servicio: cells[2].querySelector('input').value,
+        edgarType: edgarSelect,
+        edgarDate: edgarDate,
+        fechaLeonardo: cells[4].querySelector('input').value,
+        fechaContabilidad: cells[5].querySelector('input').value,
+        oc: cells[6].querySelector('input').value,
+        factura: cells[7].querySelector('input').value,
+        valorNeto: cells[8].querySelector('input').value,
+      });
+    });
+    return out;
+  }
+
+  // ---------- Construcción de la tabla ----------
   const INITIAL_ROWS = 15;
 
   function initTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
-    for (let i = 0; i < INITIAL_ROWS; i++) {
-      addRow();
+    const saved = loadData();
+
+    if (saved) {
+      document.getElementById('periodo').value = saved.periodo || 'Agosto 2026';
+      if (saved.emision) document.getElementById('emision').value = saved.emision;
+      else document.getElementById('emision').valueAsDate = new Date();
+
+      if (saved.rows && saved.rows.length > 0) {
+        saved.rows.forEach(r => addRow(r));
+      } else {
+        for (let i = 0; i < INITIAL_ROWS; i++) addRow();
+      }
+    } else {
+      document.getElementById('emision').valueAsDate = new Date();
+      for (let i = 0; i < INITIAL_ROWS; i++) addRow();
     }
     updateDashboard();
   }
 
-  // Agregar fila con control de FECHA / NO APLICA en columna Edgar
-  function addRow() {
+  // Agregar fila. Si se pasa "data", la precarga con esos valores (usado al restaurar desde localStorage)
+  function addRow(data) {
     const tbody = document.getElementById('tableBody');
     const tr = document.createElement('tr');
+    const d = data || {};
 
     tr.innerHTML = `
-      <td><input type="date" oninput="updateDashboard()"></td>
-      <td><input type="text" placeholder="Cuenta..." oninput="updateDashboard()"></td>
-      <td><input type="text" placeholder="Descripción..." oninput="updateDashboard()"></td>
+      <td><input type="date" value="${d.fechaFacilities || ''}"></td>
+      <td><input type="text" placeholder="Cuenta..." value="${escapeAttr(d.cuenta)}"></td>
+      <td><input type="text" placeholder="Descripción..." value="${escapeAttr(d.servicio)}"></td>
       <td>
         <div class="edgar-cell">
           <select onchange="handleEdgarTypeChange(this)">
-            <option value="fecha">Fecha</option>
-            <option value="na">N/A</option>
+            <option value="fecha" ${d.edgarType === 'na' ? '' : 'selected'}>Fecha</option>
+            <option value="na" ${d.edgarType === 'na' ? 'selected' : ''}>N/A</option>
           </select>
-          <input type="date" oninput="updateDashboard()">
+          <input type="date" value="${d.edgarType === 'na' ? '' : (d.edgarDate || '')}" ${d.edgarType === 'na' ? 'disabled style="opacity:0.4;"' : ''}>
         </div>
       </td>
-      <td><input type="date" oninput="updateDashboard()"></td>
-      <td><input type="date" oninput="updateDashboard()"></td>
-      <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
-      <td><input type="text" style="text-align: center;" oninput="updateDashboard()"></td>
-      <td><input type="text" style="text-align: right;" placeholder="$0" oninput="updateDashboard()"></td>
+      <td><input type="date" value="${d.fechaLeonardo || ''}"></td>
+      <td><input type="date" value="${d.fechaContabilidad || ''}"></td>
+      <td><input type="text" style="text-align: center;" value="${escapeAttr(d.oc)}"></td>
+      <td><input type="text" style="text-align: center;" value="${escapeAttr(d.factura)}"></td>
+      <td><input type="text" style="text-align: right;" placeholder="$0" value="${escapeAttr(d.valorNeto)}"></td>
+      <td class="col-del"><button type="button" title="Eliminar fila" onclick="deleteRow(this)">✕</button></td>
     `;
     tbody.appendChild(tr);
+
+    // Delegar guardado + dashboard en cualquier cambio dentro de la fila
+    tr.addEventListener('input', () => { updateDashboard(); scheduleSave(); });
+    tr.addEventListener('change', () => { updateDashboard(); scheduleSave(); });
   }
 
-  // Alterna entre la entrada de fecha o deshabilitar la casilla si es "No aplica"
+  function escapeAttr(v) {
+    if (v === undefined || v === null) return '';
+    return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  }
+
+  function deleteRow(btn) {
+    const tr = btn.closest('tr');
+    tr.remove();
+    updateDashboard();
+    scheduleSave();
+  }
+
   function handleEdgarTypeChange(selectEl) {
     const dateInput = selectEl.nextElementSibling;
     if (selectEl.value === 'na') {
@@ -327,6 +394,7 @@
       dateInput.style.opacity = '1';
     }
     updateDashboard();
+    scheduleSave();
   }
 
   function updateDashboard() {
@@ -348,58 +416,127 @@
     document.getElementById('kpi-oc').textContent = conOC;
   }
 
-  // Función para exportar la tabla a un archivo de Excel (.xlsx)
-  function exportToExcel() {
+  function clearAll() {
+    if (!confirm('¿Seguro que quieres vaciar toda la planilla? Esto borra los datos guardados en este navegador y no se puede deshacer.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('periodo').value = 'Agosto 2026';
+    document.getElementById('emision').valueAsDate = new Date();
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    for (let i = 0; i < INITIAL_ROWS; i++) addRow();
+    updateDashboard();
+    saveData();
+  }
+
+  document.getElementById('periodo').addEventListener('input', scheduleSave);
+  document.getElementById('emision').addEventListener('change', scheduleSave);
+
+  // ---------- Exportar a Excel manteniendo formato ----------
+  function parseValorNeto(str) {
+    if (!str) return '';
+    const cleaned = str.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? str : num;
+  }
+
+  async function exportToExcel() {
     const periodo = document.getElementById('periodo').value || 'Sin_Periodo';
     const emision = document.getElementById('emision').value || '';
 
     const headers = [
-      "FECHA FACILITIES", "CUENTA", "SERVICIO O PRODUCTO", 
-      "FECHA EDGAR", "FECHA LEONARDO", "FECHA CONTABILIDAD", 
+      "FECHA FACILITIES", "CUENTA", "SERVICIO O PRODUCTO",
+      "FECHA EDGAR", "FECHA LEONARDO", "FECHA CONTABILIDAD",
       "OC", "FACTURA", "VALOR NETO"
     ];
 
-    const data = [];
-    const rows = document.querySelectorAll('#tableBody tr');
+    // Solo filas con al menos un dato
+    const rawRows = collectRowsRaw().filter(r =>
+      Object.entries(r).some(([k, v]) => k !== 'edgarType' && v && String(v).trim() !== '')
+    );
 
-    rows.forEach(row => {
-      const cells = row.querySelectorAll('td');
-      
-      // Obtener valor de celda FECHA EDGAR (fecha elegida o "No aplica")
-      const edgarSelect = cells[3].querySelector('select').value;
-      const edgarDate = cells[3].querySelector('input').value;
-      const edgarValue = edgarSelect === 'na' ? 'No aplica' : edgarDate;
-
-      const rowData = [
-        cells[0].querySelector('input').value,
-        cells[1].querySelector('input').value,
-        cells[2].querySelector('input').value,
-        edgarValue,
-        cells[4].querySelector('input').value,
-        cells[5].querySelector('input').value,
-        cells[6].querySelector('input').value,
-        cells[7].querySelector('input').value,
-        cells[8].querySelector('input').value
-      ];
-
-      if (rowData.some(val => val !== '')) {
-        data.push(rowData);
-      }
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Informe de Operaciones';
+    const sheet = workbook.addWorksheet('Registro', {
+      views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
     });
 
-    const sheetData = [
-      ["Informe Mensual de Operaciones"],
-      ["Periodo:", periodo, "", "Fecha de Emisión:", emision],
-      [],
-      headers,
-      ...data
+    sheet.columns = [
+      { width: 14 }, { width: 20 }, { width: 34 }, { width: 16 },
+      { width: 14 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 14 },
     ];
 
-    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Registro");
+    const thin = { style: 'thin', color: { argb: 'FFBDC3C7' } };
+    const borderAll = { top: thin, left: thin, bottom: thin, right: thin };
+    const DARK = 'FF2C3E50';
 
-    XLSX.writeFile(workbook, `Informe_Operaciones_${periodo.replace(/\s+/g, '_')}.xlsx`);
+    // Título
+    sheet.mergeCells('A1:D1');
+    sheet.getCell('A1').value = 'Informe Mensual de Operaciones';
+    sheet.getCell('A1').font = { name: 'Arial', bold: true, size: 16, color: { argb: DARK } };
+
+    sheet.mergeCells('A2:D2');
+    sheet.getCell('A2').value = 'Control de Servicios, Productos y Facturación';
+    sheet.getCell('A2').font = { name: 'Arial', italic: true, size: 11, color: { argb: 'FF7F8C8D' } };
+
+    sheet.getCell('F1').value = 'Periodo:';
+    sheet.getCell('F1').font = { name: 'Arial', bold: true, size: 10, color: { argb: 'FF666666' } };
+    sheet.getCell('G1').value = periodo;
+    sheet.getCell('G1').font = { name: 'Arial', bold: true, size: 10, color: { argb: DARK } };
+    sheet.getCell('G1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
+
+    sheet.getCell('F2').value = 'Fecha de emisión:';
+    sheet.getCell('F2').font = { name: 'Arial', bold: true, size: 10, color: { argb: 'FF666666' } };
+    sheet.getCell('G2').value = emision;
+    sheet.getCell('G2').font = { name: 'Arial', bold: true, size: 10, color: { argb: DARK } };
+
+    // Encabezado (fila 4)
+    const headerRow = sheet.getRow(4);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = borderAll;
+    });
+    headerRow.height = 24;
+
+    // Filas de datos
+    rawRows.forEach((r, idx) => {
+      const edgarValue = r.edgarType === 'na' ? 'No aplica' : (r.edgarDate || '');
+      const values = [
+        r.fechaFacilities, r.cuenta, r.servicio, edgarValue,
+        r.fechaLeonardo, r.fechaContabilidad, r.oc, r.factura,
+        parseValorNeto(r.valorNeto),
+      ];
+      const rowIdx = 5 + idx;
+      const row = sheet.getRow(rowIdx);
+      values.forEach((val, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = val === '' ? null : val;
+        cell.font = { name: 'Arial', size: 10 };
+        cell.border = borderAll;
+        cell.alignment = {
+          horizontal: (colIdx === 6 || colIdx === 7) ? 'center' : (colIdx === 8 ? 'right' : 'left'),
+          vertical: 'middle',
+        };
+        if (rowIdx % 2 === 0) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+        }
+        if (colIdx === 8 && typeof val === 'number') {
+          cell.numFmt = '$#,##0';
+        }
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Informe_Operaciones_${periodo.replace(/\s+/g, '_')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   window.onload = initTable;
