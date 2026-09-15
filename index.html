@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Informe Mensual de Operaciones</title>
-  <!-- ExcelJS: a diferencia de SheetJS (xlsx.js), SÍ soporta escribir colores, bordes y
-       fuentes en el .xlsx generado, que es lo que necesitamos para mantener el formato. -->
+  <!-- ExcelJS -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <style>
     :root {
@@ -13,6 +12,8 @@
       --light-gray: #F8F9FA;
       --border-gray: #BDC3C7;
       --input-yellow: #FFFDE7;
+      --blue: #2980b9;
+      --purple: #8e44ad;
     }
 
     body {
@@ -172,6 +173,8 @@
 
     .btn-add { background-color: var(--dark); }
     .btn-excel { background-color: #1D6F42; }
+    .btn-export { background-color: var(--blue); }
+    .btn-import { background-color: var(--purple); }
     .btn-clear { background-color: #c0392b; }
     .btn:hover { opacity: 0.9; }
 
@@ -245,6 +248,9 @@
   <div class="actions-bar">
     <button class="btn btn-add" onclick="addRow()">+ Agregar Fila</button>
     <button class="btn btn-excel" onclick="exportToExcel()">Descargar Excel</button>
+    <button class="btn btn-export" onclick="exportJSON()">Exportar Datos (JSON)</button>
+    <button class="btn btn-import" onclick="document.getElementById('importFile').click()">Cargar Datos (JSON)</button>
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)">
     <button class="btn btn-clear" onclick="clearAll()">Vaciar planilla</button>
     <span id="saveStatus"></span>
   </div>
@@ -255,8 +261,15 @@
       <li><strong>CUENTA:</strong> Ingrese el nombre o código de cuenta correspondiente.</li>
       <li><strong>FECHA EDGAR:</strong> Seleccione si ingresará una <em>Fecha</em> o la opción <em>No aplica (N/A)</em>.</li>
       <li><strong>VALOR NETO:</strong> Registre el monto neto del servicio o producto.</li>
-      <li><strong>Guardado automático:</strong> Todo lo que escribas queda guardado en este navegador; si cierras o recargas la página, tus datos siguen ahí.</li>
-      <li><strong>Exportar:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con el mismo formato de esta planilla (colores, encabezado, bordes).</li>
+      <li><strong>Guardado automático:</strong> Todo lo que escribas queda guardado localmente en este navegador.</li>
+      <li><strong>Compartir datos con otra persona:</strong>
+        <ol>
+          <li>Presiona <strong>"Exportar Datos (JSON)"</strong> para guardar un archivo con tus datos ingresados.</li>
+          <li>Envía ese archivo descargado a la otra persona junto con esta página HTML.</li>
+          <li>La otra persona abre este HTML y presiona <strong>"Cargar Datos (JSON)"</strong> para cargar todos tus registros.</li>
+        </ol>
+      </li>
+      <li><strong>Exportar a Excel:</strong> Presiona "Descargar Excel" para obtener el archivo .xlsx con formato (colores, encabezado, bordes).</li>
     </ul>
   </div>
 </div>
@@ -290,7 +303,6 @@
     try { return JSON.parse(raw); } catch (e) { return null; }
   }
 
-  // Lee el estado actual de cada fila del DOM, tal cual está, sin filtrar vacías
   function collectRowsRaw() {
     const out = [];
     document.querySelectorAll('#tableBody tr').forEach(row => {
@@ -317,17 +329,21 @@
   const INITIAL_ROWS = 15;
 
   function initTable() {
+    const saved = loadData();
+    renderWithData(saved);
+  }
+
+  function renderWithData(data) {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
-    const saved = loadData();
 
-    if (saved) {
-      document.getElementById('periodo').value = saved.periodo || 'Agosto 2026';
-      if (saved.emision) document.getElementById('emision').value = saved.emision;
+    if (data) {
+      document.getElementById('periodo').value = data.periodo || 'Agosto 2026';
+      if (data.emision) document.getElementById('emision').value = data.emision;
       else document.getElementById('emision').valueAsDate = new Date();
 
-      if (saved.rows && saved.rows.length > 0) {
-        saved.rows.forEach(r => addRow(r));
+      if (data.rows && data.rows.length > 0) {
+        data.rows.forEach(r => addRow(r));
       } else {
         for (let i = 0; i < INITIAL_ROWS; i++) addRow();
       }
@@ -338,7 +354,6 @@
     updateDashboard();
   }
 
-  // Agregar fila. Si se pasa "data", la precarga con esos valores (usado al restaurar desde localStorage)
   function addRow(data) {
     const tbody = document.getElementById('tableBody');
     const tr = document.createElement('tr');
@@ -366,7 +381,6 @@
     `;
     tbody.appendChild(tr);
 
-    // Delegar guardado + dashboard en cualquier cambio dentro de la fila
     tr.addEventListener('input', () => { updateDashboard(); scheduleSave(); });
     tr.addEventListener('change', () => { updateDashboard(); scheduleSave(); });
   }
@@ -428,10 +442,46 @@
     saveData();
   }
 
+  // ---------- Funciones de Compartir (JSON) ----------
+  function exportJSON() {
+    const payload = {
+      periodo: document.getElementById('periodo').value,
+      emision: document.getElementById('emision').value,
+      rows: collectRowsRaw(),
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    const filename = `Datos_Informe_Operaciones_${(payload.periodo || 'Periodo').replace(/\s+/g, '_')}.json`;
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", filename);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function importJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        renderWithData(parsed);
+        saveData();
+        alert('¡Datos cargados correctamente!');
+      } catch (err) {
+        alert('Error: El archivo seleccionado no es un JSON válido.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
   document.getElementById('periodo').addEventListener('input', scheduleSave);
   document.getElementById('emision').addEventListener('change', scheduleSave);
 
-  // ---------- Exportar a Excel manteniendo formato ----------
+  // ---------- Exportar a Excel ----------
   function parseValorNeto(str) {
     if (!str) return '';
     const cleaned = str.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
@@ -449,7 +499,6 @@
       "OC", "FACTURA", "VALOR NETO"
     ];
 
-    // Solo filas con al menos un dato
     const rawRows = collectRowsRaw().filter(r =>
       Object.entries(r).some(([k, v]) => k !== 'edgarType' && v && String(v).trim() !== '')
     );
@@ -489,7 +538,7 @@
     sheet.getCell('G2').value = emision;
     sheet.getCell('G2').font = { name: 'Arial', bold: true, size: 10, color: { argb: DARK } };
 
-    // Encabezado (fila 4)
+    // Encabezado
     const headerRow = sheet.getRow(4);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);
